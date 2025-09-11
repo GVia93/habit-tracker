@@ -1,9 +1,14 @@
-from django.urls import path
+from django.urls import include, path
+from rest_framework.routers import DefaultRouter
 
-from . import views
+from .views import HabitViewSet, PublicHabitList
 
 app_name = "habits"
 
+router = DefaultRouter()
+router.register(r"habits", HabitViewSet, basename="habit")
+
 urlpatterns = [
-    path("", views.index, name="index"),  # временный маршрут
+    path("habits/public/", PublicHabitList.as_view(), name="habits-public"),
+    path("", include(router.urls)),
 ]
