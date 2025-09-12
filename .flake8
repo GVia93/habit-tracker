@@ -1,0 +1,7 @@
+[flake8]
+max-line-length = 119
+exclude = .venv,venv,migrations,build,dist
+ignore =
+    D301
+    E203
+    W503

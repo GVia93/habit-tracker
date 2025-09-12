@@ -6,7 +6,7 @@ from .views import RegisterAPIView
 app_name = "users"
 
 urlpatterns = [
-    path("register/", RegisterAPIView.as_view(), name="auth-register"),
-    path("login/", TokenObtainPairView.as_view(), name="auth-login"),
-    path("refresh/", TokenRefreshView.as_view(), name="auth-refresh"),
+    path("register", RegisterAPIView.as_view(), name="auth-register"),
+    path("login", TokenObtainPairView.as_view(), name="auth-login"),
+    path("refresh", TokenRefreshView.as_view(), name="auth-refresh"),
 ]
