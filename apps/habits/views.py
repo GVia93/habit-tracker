@@ -15,6 +15,8 @@ class HabitViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated, IsOwnerOrReadOnly]
 
     def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False) or not self.request.user.is_authenticated:
+            return Habit.objects.none()
         return Habit.objects.filter(user=self.request.user).order_by("-created_at")
 
     def perform_create(self, serializer: HabitSerializer) -> None:
