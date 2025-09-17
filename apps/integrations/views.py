@@ -21,10 +21,12 @@ class TelegramProfileViewSet(ModelViewSet):
 
     pagination_class = None
     serializer_class = TelegramProfileSerializer
-    queryset = TelegramProfile.objects.all()
+    queryset = TelegramProfile.objects.none()
 
     def get_queryset(self):
         """Фильтруем queryset, чтобы вернуть только профиль текущего пользователя."""
+        if getattr(self, "swagger_fake_view", False) or not self.request.user.is_authenticated:
+            return TelegramProfile.objects.none()
         return TelegramProfile.objects.filter(user=self.request.user)
 
     def perform_create(self, serializer):

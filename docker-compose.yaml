@@ -1,0 +1,90 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16
+    container_name: habit_db
+    restart: unless-stopped
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      TZ: ${TIME_ZONE}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: habit_redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  web:
+    build: .
+    container_name: habit_web
+    restart: unless-stopped
+    env_file: .env
+    command: bash -lc "
+      python manage.py migrate &&
+      python manage.py runserver 0.0.0.0:8000"
+    ports:
+      - "${WEB_PORT:-8000}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./:/code
+
+  worker:
+    build: .
+    container_name: habit_worker
+    restart: unless-stopped
+    env_file: .env
+    command: celery -A config worker -l info
+    depends_on:
+      redis:
+        condition: service_healthy
+      db:
+        condition: service_started
+      web:
+        condition: service_started
+    volumes:
+      - ./:/code
+
+  beat:
+    build: .
+    container_name: habit_beat
+    restart: unless-stopped
+    env_file: .env
+    command: celery -A config beat -l info
+    depends_on:
+      redis:
+        condition: service_healthy
+      db:
+        condition: service_started
+      worker:
+        condition: service_started
+    volumes:
+      - ./:/code
+
+volumes:
+  pgdata:
+  redisdata:

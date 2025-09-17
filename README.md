@@ -44,7 +44,19 @@ python manage.py runserver
 celery -A config worker -l info -P solo   # worker
 celery -A config beat -l info             # планировщик
 ```
+## Запуск через Docker Compose
 
+```bash
+# 1) Подготовка
+cp .env.example .env
+# при необходимости отредактируйте .env
+
+# 2) Запуск всех сервисов
+docker compose up --build -d
+
+# 3) Создать суперпользователя
+docker compose exec web python manage.py create_superuser
+```
 ---
 
 ## Основные эндпоинты

@@ -90,7 +90,7 @@ DATABASES = {
         "NAME": os.getenv("DB_NAME", "habit_db"),
         "USER": os.getenv("DB_USER", "habit_user"),
         "PASSWORD": os.getenv("DB_PASSWORD", "habit_pass"),
-        "HOST": os.getenv("DB_HOST", "127.0.0.1"),
+        "HOST": os.getenv("DB_HOST", "db"),
         "PORT": os.getenv("DB_PORT", "5432"),
     }
 }
@@ -161,10 +161,11 @@ SWAGGER_USE_COMPAT_RENDERERS = False  # гасим DeprecationWarning от drf-y
 # -----------------------------------------------------------------------------
 # Redis / Celery
 # -----------------------------------------------------------------------------
-REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379/0")
 CELERY_BROKER_URL = REDIS_URL
 CELERY_RESULT_BACKEND = REDIS_URL
 CELERY_TIMEZONE = TIME_ZONE
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 
 CELERY_BEAT_SCHEDULE = {
     "send-habit-reminders-every-minute": {
