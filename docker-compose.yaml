@@ -53,6 +53,16 @@ services:
     volumes:
       - ./:/code
 
+  nginx:
+    image: nginx:1.25-alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - static_volume:/app/staticfiles
+    depends_on:
+      - web
+
   worker:
     build: .
     container_name: habit_worker
@@ -86,5 +96,6 @@ services:
       - ./:/code
 
 volumes:
-  pgdata:
-  redisdata:
+  postgres_data:
+  static_volume:
+  redis_volume:
