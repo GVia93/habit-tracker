@@ -144,7 +144,7 @@ jobs:
             echo "${{ secrets.ENV_PROD }}" > .env
             chmod 600 .env
 
-            docker compose pull
-            docker compose up -d --build
-            docker compose exec -T web python manage.py migrate --noinput
-            docker compose exec -T web python manage.py collectstatic --noinput
+            sudo docker compose pull
+            sudo docker compose up -d --build
+            sudo docker compose exec -T web python manage.py migrate --noinput
+            sudo docker compose exec -T web python manage.py collectstatic --noinput
