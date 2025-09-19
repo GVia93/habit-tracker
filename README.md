@@ -112,6 +112,13 @@ docker compose exec web python manage.py create_superuser
 - Swagger: [`/swagger/`](http://127.0.0.1:8000/swagger/)
 - ReDoc: [`/redoc/`](http://127.0.0.1:8000/redoc/)
 
+
+## Демо (сервер)
+
+- Приложение: http://84.201.171.15
+- Swagger: http://84.201.171.15/swagger/
+- ReDoc: http://84.201.171.15/redoc/
+
 ---
 
 ## Тесты и стиль кода
