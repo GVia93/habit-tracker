@@ -2,11 +2,11 @@ name: CI/CD
 
 on:
   push:
-    branches: [ feature/hw_2, develop ]      # триггерим нужные ветки
-  pull_request:                               # ПР — запускает lint/tests
+    branches: [ feature/hw_2, develop ]
+  pull_request:
 
 concurrency:
-  group: habit-tracker-${{ github.ref }}      # один ран статуса на ветку
+  group: habit-tracker-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -24,13 +24,13 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.13'
-          cache: 'pip'                        # кэшируем зависимости
+          cache: 'pip'
 
       - name: Install deps
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install flake8                  # на всякий случай, если нет в requirements
+          pip install flake8
 
       - name: Run flake8
         run: |
@@ -101,43 +101,37 @@ jobs:
           request_pty: true
           command_timeout: 30m
           script: |
-              set -euo pipefail
-              PROJECT_DIR=/srv/habit-tracker
-              REPO="https://github.com/${{ github.repository }}.git"
-              BRANCH="${GITHUB_REF_NAME:-develop}"
-              
-              # 1) Клон (если первый деплой)
-              if [ ! -d "$PROJECT_DIR/.git" ]; then
-                mkdir -p "$PROJECT_DIR"
-                git clone --branch "$BRANCH" --depth 1 "$REPO" "$PROJECT_DIR"
-              fi
-              
-              cd "$PROJECT_DIR"
-              
-              # 2) Сразу пишем .env (до любых docker compose)
-              printf '%s\n' "${{ secrets.ENV_FILE }}" > .env
-              chmod 600 .env
-              
-              # 3) Обновляем код
-              git fetch --all --prune
-              git reset --hard "origin/$BRANCH"
-              git clean -fdx || true
-              
-              # 4) Чистим статик/медиа из контейнера (root внутри)
-              docker compose run --rm -T web sh -lc 'rm -rf /app/staticfiles /app/media || true' || true
-              
-              # 5) Сборка / запуск (с учётом кэша, см. пункт Б)
-              docker compose pull
-              docker compose up -d --build --remove-orphans
-              
-              # 6) Ожидаем БД и выполняем команды Django
-              echo "Waiting for DB to be healthy..."
-              for i in $(seq 1 30); do
-                state=$(docker inspect -f '{{.State.Health.Status}}' habit_db 2>/dev/null || echo "unknown")
-                [ "$state" = "healthy" ] && break
-                sleep 2
-              done
-
-            # Миграции и collectstatic
+            set -euo pipefail
+  
+            PROJECT_DIR=/srv/habit-tracker
+            BRANCH="${{ github.ref_name }}"
+            REPO="https://github.com/${{ github.repository }}.git" 
+  
+            if [ ! -d "$PROJECT_DIR/.git" ]; then
+              mkdir -p "$PROJECT_DIR"
+              git clone --branch "$BRANCH" --depth 1 "$REPO" "$PROJECT_DIR"
+            fi
+  
+            cd "$PROJECT_DIR"
+   
+            git fetch --all --prune
+            git reset --hard "origin/$BRANCH"
+            git clean -fdx || true
+  
+            printf '%s\n' "${{ secrets.ENV_FILE }}" > .env
+            chmod 600 .env
+            
+            docker compose run --rm -T web sh -lc 'rm -rf /app/staticfiles /app/media || true' || true
+  
+            docker compose pull
+            docker compose up -d --build --remove-orphans
+  
+            echo "Waiting for DB to be healthy..."
+            for i in $(seq 1 30); do
+              state=$(docker inspect -f '{{.State.Health.Status}}' habit_db 2>/dev/null || echo "unknown")
+              [ "$state" = "healthy" ] && break
+              sleep 2
+            done
+  
             docker compose exec -T web python manage.py migrate --noinput
             docker compose exec -T web python manage.py collectstatic --noinput

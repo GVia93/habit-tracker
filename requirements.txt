@@ -1,7 +1,7 @@
 django==5.0.7
 djangorestframework==3.15.2
 djangorestframework-simplejwt==5.3.1
-setuptools>=70.0.0
+setuptools<81
 drf-yasg==1.21.7
 python-dotenv==1.0.1
 psycopg[binary]>=3.1
