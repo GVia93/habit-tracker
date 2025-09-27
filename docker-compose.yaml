@@ -1,19 +1,22 @@
-version: "3.9"
-
 services:
+
   db:
     image: postgres:16
     container_name: habit_db
     restart: unless-stopped
+
     ports:
-      - "${DB_PORT:-5432}:5432"
+      - "${DB_PORT:-5432}:5432"            # публикуем порт БД (dev/отладка)
+
     environment:
       POSTGRES_DB: ${DB_NAME}
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       TZ: ${TIME_ZONE}
+
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
+
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
       interval: 10s
@@ -24,11 +27,15 @@ services:
     image: redis:7-alpine
     container_name: habit_redis
     restart: unless-stopped
+
     ports:
-      - "${REDIS_PORT:-6379}:6379"
+      - "${REDIS_PORT:-6379}:6379"         # публикуем порт Redis (dev/отладка)
+
     command: ["redis-server", "--appendonly", "yes"]
+
     volumes:
-      - redisdata:/data
+      - redis_volume:/data
+
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -39,26 +46,50 @@ services:
     build: .
     container_name: habit_web
     restart: unless-stopped
+
     env_file: .env
-    command: bash -lc "
+
+    command: >
+      bash -lc "
       python manage.py migrate &&
-      python manage.py runserver 0.0.0.0:8000"
-    ports:
-      - "${WEB_PORT:-8000}:8000"
+      gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 3
+      "
+
+    volumes:
+      - ./:/app
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
+
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
+
+    ports:
+      - "${WEB_PORT:-8000}:8000"           # прямой доступ к приложению (dev/отладка)
+
+  nginx:
+    image: nginx:1.25-alpine
+    ports:
+      - "80:80"
+
     volumes:
-      - ./:/code
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - static_volume:/app/staticfiles:ro
+      - media_volume:/app/media:ro
+
+    depends_on:
+      - web
 
   worker:
     build: .
     container_name: habit_worker
     restart: unless-stopped
+
     env_file: .env
     command: celery -A config worker -l info
+
     depends_on:
       redis:
         condition: service_healthy
@@ -66,15 +97,18 @@ services:
         condition: service_started
       web:
         condition: service_started
+
     volumes:
-      - ./:/code
+      - ./:/app
 
   beat:
     build: .
     container_name: habit_beat
     restart: unless-stopped
+
     env_file: .env
     command: celery -A config beat -l info
+
     depends_on:
       redis:
         condition: service_healthy
@@ -82,9 +116,12 @@ services:
         condition: service_started
       worker:
         condition: service_started
+
     volumes:
-      - ./:/code
+      - ./:/app
 
 volumes:
-  pgdata:
-  redisdata:
+  postgres_data:
+  static_volume:
+  media_volume:
+  redis_volume:

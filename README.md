@@ -4,6 +4,21 @@
 
 ---
 
+## Оглавление
+- [Установка и запуск](#установка-и-запуск)
+- [Redis + Celery](#redis--celery)
+- [Запуск через Docker Compose](#запуск-через-docker-compose)
+- [Основные эндпоинты](#основные-эндпоинты)
+- [Интеграция с Telegram](#интеграция-с-telegram)
+- [Документация API](#документация-api)
+- [Тесты и стиль кода](#тесты-и-стиль-кода)
+- [Переменные окружения](#переменные-окружения)
+- [Настройка сервера (Ubuntu 22.04 + Docker + Nginx)](#настройка-сервера-ubuntu-2204--docker--nginx)
+- [CI/CD (GitHub Actions)](#cicd-github-actions)
+- [Архитектура проекта](#архитектура-проекта)
+- [Обновление проекта](#обновление-проекта)
+
+
 ## Установка и запуск
 
 ```bash
@@ -97,6 +112,13 @@ docker compose exec web python manage.py create_superuser
 - Swagger: [`/swagger/`](http://127.0.0.1:8000/swagger/)
 - ReDoc: [`/redoc/`](http://127.0.0.1:8000/redoc/)
 
+
+## Демо (сервер)
+
+- Приложение: http://84.201.171.15
+- Swagger: http://84.201.171.15/swagger/
+- ReDoc: http://84.201.171.15/redoc/
+
 ---
 
 ## Тесты и стиль кода
@@ -113,4 +135,173 @@ black . --check
 
 См. [.env.example](.env.example). Основные:
 
+
+---
+
+## Настройка сервера (Ubuntu 22.04 + Docker + Nginx)
+
+1. **Установите зависимости**  
+   На чистом сервере выполните:
+   ```bash
+   sudo apt update && sudo apt upgrade -y
+   sudo apt install -y docker.io docker-compose nginx
+   sudo systemctl enable docker
+   ```
+
+2. **Настройте доступ по SSH-ключам**  
+   - Скопируйте ваш публичный ключ на сервер:
+     ```bash
+     ssh-copy-id user@your-server-ip
+     ```
+   - Запретите вход по паролю (в `/etc/ssh/sshd_config`):
+     ```
+     PasswordAuthentication no
+     ```
+   - Перезапустите SSH:
+     ```bash
+     sudo systemctl restart ssh
+     ```
+
+3. **Закройте ненужные порты**  
+   Оставьте открытым только 22 (SSH) и 80/443 (HTTP/HTTPS):
+   ```bash
+   sudo ufw allow OpenSSH
+   sudo ufw allow 80
+   sudo ufw allow 443
+   sudo ufw enable
+   ```
+
+4. **Подготовьте директории проекта**  
+   ```bash
+   mkdir -p ~/apps/habit-tracker
+   cd ~/apps/habit-tracker
+   ```
+
+5. **Настройте Docker Compose и окружение**  
+   - Скопируйте файлы проекта на сервер (через `git pull` или `rsync`).  
+   - Создайте файл `.env` на основе `.env.example`.  
+   - Запустите проект:
+     ```bash
+     docker compose up -d --build
+     ```
+
+6. **Настройте Nginx**  
+   - Добавьте конфиг (пример уже есть в `nginx.conf`).  
+   - Скопируйте его в `/etc/nginx/sites-available/habit-tracker` и сделайте симлинк:
+     ```bash
+     sudo ln -s /etc/nginx/sites-available/habit-tracker /etc/nginx/sites-enabled/
+     ```
+   - Проверьте конфиг:
+     ```bash
+     sudo nginx -t
+     ```
+   - Перезапустите Nginx:
+     ```bash
+     sudo systemctl restart nginx
+     ```
+
+После этого приложение будет доступно по IP-адресу сервера или вашему домену.
+
+---
+
+## CI/CD (GitHub Actions)
+
+Проект настроен на автоматический деплой при каждом push в репозиторий.
+
+1. **Workflow-файл**  
+   Находится в `.github/workflows/ci-cd.yml`.  
+   Содержит шаги:
+   - установка зависимостей,
+   - запуск тестов (`pytest`, `flake8`),
+   - деплой на сервер (только после успешного прохождения тестов).
+
+2. **Secrets GitHub**  
+   Для работы CI/CD необходимо задать секреты в репозитории:  
+   - `HOST` — IP или домен сервера,  
+   - `USERNAME` — пользователь для SSH,  
+   - `SSH_KEY` — приватный ключ для доступа на сервер,  
+   - другие переменные окружения (например, `DB_PASSWORD`, `TELEGRAM_BOT_TOKEN`).
+
+3. **Запуск workflow**  
+   Workflow запускается автоматически при `git push`.  
+   Проверить статус можно в GitHub: вкладка **Actions** → выбранный workflow.
+
+4. **Проверка деплоя**  
+   После успешного выполнения workflow приложение будет доступно по адресу сервера.  
+   Логи деплоя можно просмотреть в GitHub Actions.
+
+   
+---
+
+## Архитектура проекта
+
 ```
+        Nginx (reverse proxy, static/media)
+                  |
+          Gunicorn (Django)
+                  |
+       ------------------------
+       |         |            |
+    Postgres   Redis       Celery (beat + worker)
+```
+
+- **Nginx** — отдача статики/медиа, прокси до Django.  
+- **Gunicorn** — WSGI сервер для Django.  
+- **Postgres** — база данных.  
+- **Redis** — брокер сообщений для Celery.  
+- **Celery** — обработка фоновых задач и планировщик напоминаний.
+
+---
+
+## Переменные окружения
+
+Основные переменные (см. `.env.example` для актуальных значений):
+
+```ini
+# Django
+SECRET_KEY=your-secret-key
+DEBUG=False
+ALLOWED_HOSTS=yourdomain.com,127.0.0.1
+
+# База данных
+DB_HOST=db
+DB_PORT=5432
+DB_NAME=habit_db
+DB_USER=habit_user
+DB_PASSWORD=superpassword
+
+# Redis
+REDIS_URL=redis://redis:6379/0
+
+# Telegram
+TELEGRAM_BOT_TOKEN=123456:AA...your-token
+
+# Дополнительно
+TIMEZONE=Europe/Moscow
+```
+
+---
+
+## Обновление проекта
+
+Для выката новых версий на сервере:
+
+```bash
+cd ~/apps/habit-tracker
+git pull origin develop
+docker compose up -d --build
+docker compose exec web python manage.py migrate
+```
+
+---
+
+## Настройка HTTPS (опционально)
+
+Для продакшн рекомендуется включить HTTPS через **Let's Encrypt**:
+
+```bash
+sudo apt install -y certbot python3-certbot-nginx
+sudo certbot --nginx -d yourdomain.com
+```
+
+Сертификаты обновляются автоматически (cron уже установлен с certbot).
